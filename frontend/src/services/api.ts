@@ -130,4 +130,104 @@ export const getMetricsSummary = async (): Promise<MetricsSummary> => {
     return response.data;
 };
 
+// ============== ADVANCED FEATURES API ==============
+
+export interface WeatherState {
+    condition: number;
+    condition_name: string;
+    speed_factor: number;
+    min_green_adjustment: number;
+    is_raining: boolean;
+}
+
+export interface EmergencyVehicle {
+    id: string;
+    type: 'AMBULANCE' | 'FIRE_TRUCK' | 'POLICE';
+    distance: number;
+    eta: number;
+    junction: string;
+    priority: number;
+}
+
+export interface EmergencyStatus {
+    active: boolean;
+    vehicle: EmergencyVehicle | null;
+    preemption_active: boolean;
+    time_remaining: number;
+}
+
+export interface ControllerMetrics {
+    controller: string;
+    avg_delay: number;
+    throughput: number;
+    emergency_time: number;
+    queue_length: number;
+}
+
+export interface EvaluationMetrics {
+    comparison: ControllerMetrics[];
+    improvement: {
+        delay_reduction: number;
+        throughput_gain: number;
+    };
+    total_steps: number;
+}
+
+/**
+ * Get current weather conditions
+ */
+export const getWeatherStatus = async (): Promise<WeatherState> => {
+    const response = await apiClient.get<WeatherState>('/api/advanced/weather');
+    return response.data;
+};
+
+/**
+ * Set weather condition (for testing)
+ */
+export const setWeatherCondition = async (condition: number): Promise<void> => {
+    await apiClient.post('/api/advanced/weather/set', null, {
+        params: { condition }
+    });
+};
+
+/**
+ * Get emergency vehicle status
+ */
+export const getEmergencyStatus = async (): Promise<EmergencyStatus> => {
+    const response = await apiClient.get<EmergencyStatus>('/api/advanced/emergency');
+    return response.data;
+};
+
+/**
+ * Simulate emergency vehicle (for testing)
+ */
+export const simulateEmergency = async (
+    vehicleType: 'AMBULANCE' | 'FIRE_TRUCK' | 'POLICE' = 'AMBULANCE',
+    distance: number = 200,
+    junction: string = 'silk_board'
+): Promise<void> => {
+    await apiClient.post('/api/advanced/emergency/simulate', null, {
+        params: {
+            vehicle_type: vehicleType,
+            distance,
+            junction
+        }
+    });
+};
+
+/**
+ * Clear emergency status
+ */
+export const clearEmergency = async (): Promise<void> => {
+    await apiClient.post('/api/advanced/emergency/clear');
+};
+
+/**
+ * Get evaluation/comparison metrics
+ */
+export const getEvaluationMetrics = async (): Promise<EvaluationMetrics> => {
+    const response = await apiClient.get<EvaluationMetrics>('/api/advanced/evaluation/comparison');
+    return response.data;
+};
+
 export default apiClient;

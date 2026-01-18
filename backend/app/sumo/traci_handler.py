@@ -13,6 +13,8 @@ class TraCIHandler:
         self.connected = False
         self.junction_ids: List[str] = []
         self.lane_ids: List[str] = []
+        self.total_departed = 0
+        self.total_arrived = 0
         
     def connect(self, port: int = 8813) -> bool:
         """
@@ -48,6 +50,9 @@ class TraCIHandler:
             if self.connected:
                 traci.close()
                 self.connected = False
+                # Reset counters
+                self.total_departed = 0
+                self.total_arrived = 0
                 print("TraCI disconnected")
         except Exception as e:
             print(f"Error disconnecting TraCI: {e}")
@@ -90,9 +95,12 @@ class TraCIHandler:
                     "state": state
                 }
             
-            # Calculate throughput
-            departed = traci.simulation.getDepartedNumber()
-            arrived = traci.simulation.getArrivedNumber()
+            # Calculate cumulative throughput
+            self.total_departed += traci.simulation.getDepartedNumber()
+            self.total_arrived += traci.simulation.getArrivedNumber()
+            
+            # Calculate throughput rate (vehicles/hour)
+            throughput_rate = (self.total_arrived / current_time * 3600) if current_time > 0 else 0
             
             return {
                 "time": current_time,
@@ -100,8 +108,9 @@ class TraCIHandler:
                 "waiting_time": avg_waiting_time,
                 "total_waiting_time": total_waiting_time,
                 "vehicle_count": len(vehicle_ids),
-                "departed_vehicles": departed,
-                "arrived_vehicles": arrived,
+                "departed_vehicles": self.total_departed,
+                "arrived_vehicles": self.total_arrived,
+                "throughput_rate": round(throughput_rate, 2),
                 "traffic_lights": traffic_lights,
                 "timestamp": current_time
             }

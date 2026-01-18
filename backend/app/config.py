@@ -21,20 +21,23 @@ class Settings(BaseSettings):
     
     # RL Configuration
     RL_ALGO: str = "PPO"
-    MODEL_PATH: str = "models/ppo_model.zip"
-    TRAINING_TIMESTEPS: int = 100000
+    MODEL_PATH: str = "models/checkpoints"
+    MODEL_POLICY_PEAK: str = "models/checkpoints/policy_PEAK.zip"
+    MODEL_POLICY_OFF_PEAK: str = "models/checkpoints/policy_OFF_PEAK.zip"
+    MODEL_POLICY_NIGHT: str = "models/checkpoints/policy_NIGHT.zip"
+    TRAINING_TIMESTEPS: int = 150000
     
     # Server Configuration
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:5173"
     
     # WebSocket Configuration
     WS_UPDATE_INTERVAL: float = 1.0
     
     # Network Files
     NETWORK_FILE: str = "app/sumo/network/network.net.xml"
-    ROUTE_FILE: str = "app/sumo/network/routes.rou.xml"
+    ROUTE_FILE: str = "app/sumo/network/routes_peak.rou.xml"
     CONFIG_FILE: str = "app/sumo/network/simulation.sumocfg"
     
     class Config:

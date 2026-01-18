@@ -1,11 +1,32 @@
 import React, { useEffect } from 'react';
 import { SignalState } from './SignalState';
+import { WeatherIndicator } from './WeatherIndicator';
+import { EmergencyAlert } from './EmergencyAlert';
+
+interface EmergencyVehicle {
+    id: string;
+    type: 'AMBULANCE' | 'FIRE_TRUCK' | 'POLICE';
+    distance: number;
+    eta: number;
+    junction: string;
+}
+
+interface WeatherState {
+    condition: number;  // 0-3 (normal, light rain, moderate rain, heavy rain)
+    speedFactor: number;
+    minGreenAdjustment: number;
+}
 
 interface DigitalTwinProps {
     queueLength: number;
     vehicleCount: number;
     trafficLights: any;
     locationId?: string;
+    // New props for advanced features
+    weatherState?: WeatherState;
+    emergencyActive?: boolean;
+    emergencyVehicle?: EmergencyVehicle;
+    controllerType?: 'RL' | 'Fixed-Time' | 'Actuated';
 }
 
 const LOCATION_COORDS: Record<string, [number, number]> = {
@@ -14,7 +35,24 @@ const LOCATION_COORDS: Record<string, [number, number]> = {
     'hebbal': [13.0334, 77.5891]
 };
 
-export const DigitalTwin: React.FC<DigitalTwinProps> = ({ queueLength, vehicleCount, trafficLights, locationId = 'silk_board' }) => {
+const CONTROLLER_BADGES: Record<string, { icon: string; color: string }> = {
+    'RL': { icon: '🤖', color: '#22c55e' },
+    'Fixed-Time': { icon: '⏱️', color: '#64748b' },
+    'Actuated': { icon: '📊', color: '#eab308' }
+};
+
+export const DigitalTwin: React.FC<DigitalTwinProps> = ({ 
+    queueLength, 
+    vehicleCount, 
+    trafficLights, 
+    locationId = 'silk_board',
+    weatherState,
+    emergencyActive = false,
+    emergencyVehicle,
+    controllerType = 'RL'
+}) => {
+    const [mapLoaded, setMapLoaded] = React.useState(false);
+    
     // Determine congestion color
     const getCongestionColor = () => {
         if (queueLength > 80) return '#ef4444'; // Red
@@ -32,6 +70,12 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({ queueLength, vehicleCo
     const bbox = `${center[1] - offset},${center[0] - offset},${center[1] + offset},${center[0] + offset}`;
     const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${center[0]},${center[1]}`;
 
+    useEffect(() => {
+        // Set timeout to show loading state
+        const timer = setTimeout(() => setMapLoaded(true), 1000);
+        return () => clearTimeout(timer);
+    }, [locationId]);
+
     return (
         <div className="digital-twin-container" style={{
             width: '100%',
@@ -39,24 +83,27 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({ queueLength, vehicleCo
             position: 'relative',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            background: '#0f172a'
+            justifyContent: 'center'
         }}>
-
-            {/* 🌍 REAL MAP BACKGROUND (Using Iframe for Stability) */}
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, filter: 'invert(100%) hue-rotate(180deg) brightness(0.8) contrast(1.2)' }}>
-                <iframe
-                    width="100%"
-                    height="100%"
-                    frameBorder="0"
-                    scrolling="no"
-                    marginHeight={0}
-                    marginWidth={0}
-                    src={embedUrl}
-                    style={{ pointerEvents: 'none' }} // Disable map interaction to keep focus on scanner
-                ></iframe>
-            </div>
+            {!mapLoaded && (
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#64748b', fontSize: '0.9em' }}>
+                    Loading map...
+                </div>
+            )}
+            <iframe
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                scrolling="no"
+                marginHeight={0}
+                marginWidth={0}
+                src={embedUrl}
+                title="Traffic Location Map"
+                loading="eager"
+                onLoad={() => setMapLoaded(true)}
+                style={{ pointerEvents: 'none', border: 'none', opacity: mapLoaded ? 1 : 0, transition: 'opacity 0.5s' }}
+                sandbox="allow-scripts allow-same-origin"
+            ></iframe>
 
             {/* 🕸️ SCANNER OVERLAY (The "Digital Twin" Effect) */}
             <div className="scanner-overlay" style={{
@@ -110,6 +157,49 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({ queueLength, vehicleCo
                     LIVE SIGNAL TELEMETRY
                 </h3>
                 <SignalState trafficLights={trafficLights} />
+            </div>
+
+            {/* Weather Indicator (Top Right) */}
+            <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 20 }}>
+                <WeatherIndicator 
+                    condition={weatherState?.condition || 0}
+                    speedFactor={weatherState?.speedFactor || 1.0}
+                    minGreenAdjustment={weatherState?.minGreenAdjustment || 0}
+                />
+            </div>
+
+            {/* Emergency Alert (Bottom Left) */}
+            <div style={{ position: 'absolute', bottom: '20px', left: '20px', zIndex: 20 }}>
+                <EmergencyAlert 
+                    active={emergencyActive}
+                    vehicle={emergencyVehicle}
+                    junctionId={locationId}
+                />
+            </div>
+
+            {/* Controller Type Badge (Top Center) */}
+            <div style={{
+                position: 'absolute',
+                top: '20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 20,
+                background: 'rgba(15, 23, 42, 0.9)',
+                borderRadius: '20px',
+                padding: '8px 16px',
+                border: `1px solid ${CONTROLLER_BADGES[controllerType].color}40`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+            }}>
+                <span style={{ fontSize: '1.2em' }}>{CONTROLLER_BADGES[controllerType].icon}</span>
+                <span style={{ 
+                    color: CONTROLLER_BADGES[controllerType].color, 
+                    fontWeight: 'bold',
+                    fontSize: '0.85em'
+                }}>
+                    {controllerType} Controller
+                </span>
             </div>
 
             {/* Simulation Status (Bottom Right) */}

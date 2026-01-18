@@ -9,6 +9,7 @@ import asyncio
 from app.sumo.runner import sumo_runner
 from app.sumo.traci_handler import traci_handler
 from app.websocket import manager
+from app.rl.inference import rl_agent
 
 
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
@@ -20,13 +21,18 @@ import os
 import json
 
 # Load locations data
-LOCATIONS_FILE = "data/govt_congestion/locations.json"
+# Resolve path relative to this file: backend/app/routes/simulation.py -> backend/data/
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+LOCATIONS_FILE = os.path.join(BASE_DIR, "data", "govt_congestion", "locations.json")
 locations_data = {}
 try:
     with open(LOCATIONS_FILE, "r") as f:
         locations_data = json.load(f)
+    print(f"✅ Loaded {len(locations_data)} locations from {LOCATIONS_FILE}")
 except FileNotFoundError:
-    print("Warning: locations.json not found")
+    print(f"⚠️ Warning: locations.json not found at {LOCATIONS_FILE}")
+except Exception as e:
+    print(f"⚠️ Error loading locations.json: {e}")
 
 class SimulationRequest(BaseModel):
     mode: Literal["fixed", "rl"] = "fixed"
@@ -52,14 +58,18 @@ async def get_locations():
 def update_sumo_config(location: str):
     """Update simulation.sumocfg to use the correct network and route file"""
     try:
-        config_path = "app/sumo/network/simulation.sumocfg"
+        # app/routes/simulation.py -> app/sumo/network/
+        current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        config_path = os.path.join(current_dir, "sumo", "network", "simulation.sumocfg")
+        net_dir = os.path.join(current_dir, "sumo", "network")
+        
         tree = ET.parse(config_path)
         root = tree.getroot()
         
         # Determine files
         # Check if real map exists, otherwise fall back to grid
         real_net = f"{location}.net.xml"
-        if os.path.exists(f"app/sumo/network/{real_net}"):
+        if os.path.exists(os.path.join(net_dir, real_net)):
             net_file = real_net
             route_file = f"routes_{location}.rou.xml"
             print(f"✅ Using Real Map: {net_file}")
@@ -116,8 +126,8 @@ async def start_simulation(request: SimulationRequest):
         # Wait for SUMO to fully initialize
         await asyncio.sleep(1)
         
-        # Start broadcasting metrics
-        asyncio.create_task(manager.start_broadcasting())
+        # Start broadcasting metrics with intensity for RL policy selection
+        asyncio.create_task(manager.start_broadcasting(mode=request.mode, intensity=request.traffic_scenario))
         
         return SimulationResponse(
             status="success",
@@ -215,7 +225,8 @@ async def get_simulation_status():
             "pid": sumo_status["pid"],
             "traci_connected": traci_handler.connected,
             "active_connections": len(manager.active_connections),
-            "current_metrics": metrics
+            "current_metrics": metrics,
+            "rl_agent": rl_agent.get_status()
         }
         
     except Exception as e:

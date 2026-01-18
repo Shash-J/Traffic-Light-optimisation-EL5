@@ -1,59 +1,104 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export const Landing: React.FC = () => {
     const navigate = useNavigate();
+    const [terminalLines, setTerminalLines] = useState<string[]>([]);
+    const [systemStatus, setSystemStatus] = useState({
+        connection: 'SECURE_CONNECTED',
+        latency: '32ms',
+        region: 'AP-SOUTH-1'
+    });
+
+    useEffect(() => {
+        // Simulate terminal boot sequence
+        const lines = [
+            '> Connecting to SUMO backend kernel...',
+            '> Verifying heuristic modules...',
+            '> System ready. Awaiting user input.'
+        ];
+
+        lines.forEach((line, index) => {
+            setTimeout(() => {
+                setTerminalLines(prev => [...prev, line]);
+            }, (index + 1) * 800);
+        });
+    }, []);
 
     return (
-        <div className="landing-page" style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: 'white', textAlign: 'center', padding: '20px' }}>
+        <div className="landing-page">
+            {/* Grid pattern background */}
+            <div className="grid-pattern"></div>
 
-            <div className="hero-content" style={{ maxWidth: '800px', animation: 'fadeIn 1s ease-in' }}>
-                <div className="badge" style={{ display: 'inline-block', padding: '4px 12px', borderRadius: '20px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid #38bdf8', marginBottom: '20px', fontSize: '0.9em', fontWeight: 'bold' }}>
-                    TRAFFIC INTELLIGENCE SYSTEM
+            {/* Main content */}
+            <div className="landing-content">
+                {/* System Online Badge */}
+                <div className="system-badge">
+                    <span className="status-dot"></span>
+                    SYSTEM ONLINE
                 </div>
 
-                <h1 style={{ fontSize: '3.5em', fontWeight: '800', lineHeight: '1.2', marginBottom: '15px' }}>
-                    AI-Based Adaptive <br />
-                    <span style={{ background: 'linear-gradient(to right, #4ade80, #38bdf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        Traffic Signal Control
-                    </span> <br />
-                    for Bangalore Junctions
+                {/* Main Title */}
+                <h1 className="landing-title">
+                    <span className="title-traffic">TRAFFIC</span>{' '}
+                    <span className="title-optimizer">OPTIMIZER</span>
                 </h1>
 
-                <p style={{ fontSize: '1.25em', color: '#94a3b8', marginBottom: '40px', maxWidth: '600px', margin: '0 auto 40px' }}>
-                    Live SUMO Simulation • Reinforcement Learning • Real-World Calibration
+                {/* Subtitle */}
+                <p className="landing-subtitle">
+                    Real-Time Urban Traffic Intelligence & Control System
                 </p>
 
-                <div className="action-area">
-                    <button
-                        onClick={() => navigate('/junctions')}
-                        style={{
-                            padding: '16px 40px',
-                            fontSize: '1.2em',
-                            fontWeight: 'bold',
-                            color: 'white',
-                            background: 'linear-gradient(90deg, #2563eb, #3b82f6)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 15px rgba(37, 99, 235, 0.4)',
-                            transition: 'transform 0.2s, box-shadow 0.2s'
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(37, 99, 235, 0.6)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(37, 99, 235, 0.4)'; }}
-                    >
-                        🚀 Launch Simulation
-                    </button>
-
-                    <p style={{ marginTop: '20px', fontSize: '0.9em', color: '#64748b' }}>
-                        Simulating: Silk Board • Tin Factory • Hebbal
-                    </p>
-                </div>
+                {/* CTA Button */}
+                <button
+                    className="cta-button"
+                    onClick={() => navigate('/junctions')}
+                >
+                    ENTER CONTROL CENTER
+                    <span className="arrow">→</span>
+                </button>
             </div>
 
-            <footer style={{ position: 'absolute', bottom: '20px', fontSize: '0.8em', color: '#475569' }}>
-                Advanced Agentic Coding • Google DeepMind Project
-            </footer>
+            {/* Terminal Console */}
+            <div className="terminal-console">
+                {terminalLines.map((line, index) => (
+                    <div key={index} className="terminal-line" style={{ animationDelay: `${index * 0.5}s` }}>
+                        {line.startsWith('> System ready') ? (
+                            <>
+                                <span className="prefix">&gt;</span>
+                                <span className="success">{line.substring(2)}</span>
+                            </>
+                        ) : (
+                            <>
+                                <span className="prefix">&gt;</span>
+                                <span className="info">{line.substring(2)}</span>
+                            </>
+                        )}
+                    </div>
+                ))}
+                {terminalLines.length >= 3 && (
+                    <div className="terminal-line" style={{ animationDelay: '2.5s' }}>
+                        <span className="prefix">&gt;</span>
+                        <span className="terminal-cursor"></span>
+                    </div>
+                )}
+
+                {/* Status indicators */}
+                <div className="terminal-status">
+                    <div>
+                        <span>SECURE CONNECTION: </span>
+                        <span className="value">V1.1.3</span>
+                    </div>
+                    <div>
+                        <span>LATENCY: </span>
+                        <span className="value">{systemStatus.latency}</span>
+                    </div>
+                    <div>
+                        <span>REGION: </span>
+                        <span className="value">{systemStatus.region}</span>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

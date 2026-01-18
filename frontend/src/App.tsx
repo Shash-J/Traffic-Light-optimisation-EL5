@@ -6,12 +6,14 @@ import { Dashboard } from './pages/Dashboard';
 import { Comparison } from './pages/Comparison';
 import { AgentInsights } from './pages/AgentInsights';
 import { Results } from './pages/Results';
+import { Scenarios } from './pages/Scenarios';
 import './App.css';
 
 function App() {
     return (
         <Router>
             <div className="App">
+                <div className="grid-pattern"></div>
                 <Routes>
                     <Route path="/" element={<Landing />} />
                     <Route path="/junctions" element={<JunctionSelection />} />
@@ -19,6 +21,7 @@ function App() {
                     <Route path="/comparison" element={<Comparison />} />
                     <Route path="/agent" element={<AgentInsights />} />
                     <Route path="/results" element={<Results />} />
+                    <Route path="/scenarios" element={<Scenarios />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </div>

@@ -77,6 +77,30 @@ class TrafficEnv:
 
 
 def create_training_env():
-    """Create environment for training"""
-    env_wrapper = TrafficEnv(use_gui=False)
-    return env_wrapper.create_env()
+    """Create environment for training (returns SumoEnvironment directly)"""
+    from app.config import settings
+    import os
+    
+    # Verify files exist
+    if not os.path.exists(settings.NETWORK_FILE):
+        raise FileNotFoundError(f"Network file not found: {settings.NETWORK_FILE}")
+    if not os.path.exists(settings.ROUTE_FILE):
+        raise FileNotFoundError(f"Route file not found: {settings.ROUTE_FILE}")
+    
+    # Create SUMO-RL environment directly
+    env = SumoEnvironment(
+        net_file=settings.NETWORK_FILE,
+        route_file=settings.ROUTE_FILE,
+        use_gui=False,
+        num_seconds=settings.SIMULATION_TIME,
+        delta_time=5,  # Agent decides every 5 seconds
+        yellow_time=settings.YELLOW_TIME,
+        min_green=settings.MIN_GREEN,
+        max_green=settings.MAX_GREEN,
+        sumo_seed=42,
+        fixed_ts=False,  # RL controls the signals
+        sumo_warnings=False,
+        additional_sumo_cmd="--no-step-log --no-warnings"
+    )
+    
+    return env

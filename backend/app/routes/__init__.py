@@ -1,6 +1,6 @@
 """
 Routes package
 """
-from app.routes import simulation, metrics
+from . import simulation, metrics
 
 __all__ = ['simulation', 'metrics']

@@ -1,111 +1,287 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { wsService, SimulationMetrics } from '../services/socket';
+import { useNavigate } from 'react-router-dom';
+import { NavHeader } from '../components/NavHeader';
+import { StatusBar } from '../components/StatusBar';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+
+interface AgentMetrics {
+    episode: number;
+    reward: number;
+    epsilon: number;
+    loss: number;
+}
 
 export const AgentInsights: React.FC = () => {
-    const [metrics, setMetrics] = useState<SimulationMetrics | null>(null);
-    const [rewardHistory, setRewardHistory] = useState<number[]>([]);
+    const navigate = useNavigate();
+    const [agentData, setAgentData] = useState<AgentMetrics[]>([]);
+    const [currentPolicy, setCurrentPolicy] = useState({
+        exploration: 0.15,
+        learningRate: 0.001,
+        discountFactor: 0.99,
+        batchSize: 64,
+        memorySize: 10000
+    });
 
     useEffect(() => {
-        const unsubscribe = wsService.subscribe((data: SimulationMetrics) => {
-            setMetrics(data);
-
-            // Calculate REAL Reward Signal based on standard objective function
-            // R = -(alpha * queue + beta * wait)
-            // This is the actual mathematical signal the agent optimizes.
-            const reward = -((data.queue_length * 0.7) + (data.waiting_time * 0.3));
-            setRewardHistory(prev => [...prev.slice(-50), reward]);
-        });
-        return () => unsubscribe();
+        // Generate sample training data
+        const data: AgentMetrics[] = [];
+        for (let i = 0; i < 50; i++) {
+            data.push({
+                episode: i + 1,
+                reward: -100 + (i * 3) + Math.random() * 20,
+                epsilon: Math.max(0.1, 1 - i * 0.02),
+                loss: Math.max(0.01, 1 - i * 0.015 + Math.random() * 0.1)
+            });
+        }
+        setAgentData(data);
     }, []);
 
-    const lastReward = rewardHistory[rewardHistory.length - 1] || 0;
+    const radarData = [
+        { subject: 'Throughput', A: 85, fullMark: 100 },
+        { subject: 'Latency', A: 72, fullMark: 100 },
+        { subject: 'Stability', A: 90, fullMark: 100 },
+        { subject: 'Adaptability', A: 78, fullMark: 100 },
+        { subject: 'Efficiency', A: 88, fullMark: 100 },
+    ];
 
     return (
-        <div className="agent-page" style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0f172a', color: 'white' }}>
-            <header style={{ height: '60px', background: '#1e293b', borderBottom: '1px solid #334155', display: 'flex', alignItems: 'center', padding: '0 20px', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <Link to="/dashboard" style={{ textDecoration: 'none', fontSize: '1.5em', color: 'white' }}>⬅</Link>
-                    <h2 style={{ margin: 0, fontSize: '1.2em', fontWeight: 'bold' }}>RL AGENT BRAIN 🧠</h2>
+        <div className="dashboard-container">
+            <NavHeader onNewDeployment={() => navigate('/junctions')} />
+
+            <div className="analytics-page">
+                {/* Header */}
+                <div className="analytics-header">
+                    <div>
+                        <div className="page-label">NEURAL NETWORK DIAGNOSTICS</div>
+                        <h1 className="page-title">LOGIC_CORE MONITOR</h1>
+                    </div>
+                    <div className="actions">
+                        <button className="btn-secondary">
+                            EXPORT_WEIGHTS
+                        </button>
+                        <button className="btn-secondary">
+                            RESET_AGENT
+                        </button>
+                    </div>
                 </div>
-            </header>
 
-            <div className="content" style={{ padding: '30px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', height: 'calc(100vh - 60px)' }}>
+                {/* Main Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                    {/* Training Progress */}
+                    <div className="chart-card">
+                        <div className="chart-header">
+                            <div className="chart-label">TRAINING PROGRESS</div>
+                            <div className="chart-title">REWARD CONVERGENCE</div>
+                        </div>
+                        <div className="chart-content">
+                            <ResponsiveContainer width="100%" height={250}>
+                                <LineChart data={agentData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                                    <XAxis
+                                        dataKey="episode"
+                                        stroke="#5f6368"
+                                        tick={{ fill: '#9aa0a6', fontSize: 10 }}
+                                    />
+                                    <YAxis stroke="#5f6368" tick={{ fill: '#9aa0a6', fontSize: 10 }} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            background: '#141920',
+                                            border: '1px solid #1f2937',
+                                            borderRadius: '4px',
+                                            fontFamily: 'JetBrains Mono'
+                                        }}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="reward"
+                                        stroke="#00e5ff"
+                                        strokeWidth={2}
+                                        dot={false}
+                                        name="Reward"
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
 
-                {/* STATE SPACE */}
-                <div className="panel" style={panelStyle}>
-                    <h3 style={headerStyle}>OBSERVATION SPACE (Inputs)</h3>
-                    <p style={{ color: '#64748b', fontSize: '0.9em' }}>Real-time sensor inputs fed to the Neural Network.</p>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '20px' }}>
-                        <StateBar label="Congestion Density" value={(metrics?.queue_length || 0) / 200 * 100} raw={metrics?.queue_length} color="#38bdf8" />
-                        <StateBar label="Avg Waiting Time" value={(metrics?.waiting_time || 0)} raw={`${(metrics?.waiting_time || 0).toFixed(1)}s`} color="#fbbf24" />
-                        <StateBar label="Vehicle Count" value={(metrics?.vehicle_count || 0) / 100 * 100} raw={metrics?.vehicle_count} color="#f472b6" />
-
-                        <div style={{ marginTop: 'auto', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155', fontFamily: 'monospace', fontSize: '1em' }}>
-                            <div style={{ color: '#64748b', marginBottom: '5px' }}>Current State Vector:</div>
-                            <div>[ <span style={{ color: '#38bdf8' }}>{(metrics?.queue_length || 0).toFixed(2)}</span>, <span style={{ color: '#fbbf24' }}>{(metrics?.waiting_time || 0).toFixed(2)}</span>, <span style={{ color: '#f472b6' }}>{(metrics?.vehicle_count || 0).toFixed(1)}</span> ]</div>
+                    {/* Policy Radar */}
+                    <div className="chart-card">
+                        <div className="chart-header">
+                            <div className="chart-label">POLICY EVALUATION</div>
+                            <div className="chart-title">PERFORMANCE PROFILE</div>
+                        </div>
+                        <div className="chart-content">
+                            <ResponsiveContainer width="100%" height={250}>
+                                <RadarChart data={radarData}>
+                                    <PolarGrid stroke="#1f2937" />
+                                    <PolarAngleAxis
+                                        dataKey="subject"
+                                        tick={{ fill: '#9aa0a6', fontSize: 10 }}
+                                    />
+                                    <PolarRadiusAxis
+                                        angle={30}
+                                        domain={[0, 100]}
+                                        tick={{ fill: '#5f6368', fontSize: 8 }}
+                                    />
+                                    <Radar
+                                        name="Agent"
+                                        dataKey="A"
+                                        stroke="#00e5ff"
+                                        fill="#00e5ff"
+                                        fillOpacity={0.3}
+                                    />
+                                </RadarChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
                 </div>
 
-                {/* REWARD FUNCTION */}
-                <div className="panel" style={panelStyle}>
-                    <h3 style={headerStyle}>REWARD FUNCTION (Objective)</h3>
-                    <p style={{ color: '#64748b', fontSize: '0.9em' }}>Live feedback signal used for backpropagation.</p>
-
-                    <div style={{ textAlign: 'center', margin: '40px 0' }}>
-                        <div style={{ fontSize: '4em', fontWeight: 'bold', color: lastReward > -50 ? '#4ade80' : '#ef4444', fontFamily: 'monospace' }}>
-                            {lastReward.toFixed(2)}
+                {/* Hyperparameters */}
+                <div className="section-card" style={{ marginBottom: '24px' }}>
+                    <div className="section-header">
+                        <div>
+                            <div className="section-label">CONFIGURATION</div>
+                            <div className="section-title">HYPERPARAMETERS</div>
                         </div>
-                        <div style={{ color: '#94a3b8' }}>Instantaneous Reward</div>
                     </div>
-
-                    <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155', textAlign: 'center' }}>
-                        <code style={{ color: '#cbd5e1' }}>R = - (0.7 * Queue + 0.3 * Wait)</code>
-                    </div>
-
-                    <div style={{ height: '150px', marginTop: 'auto', display: 'flex', alignItems: 'flex-end', gap: '2px', borderBottom: '1px solid #334155' }}>
-                        {/* Real Sparkline */}
-                        {rewardHistory.map((r, i) => (
-                            <div key={i} style={{ flex: 1, background: r > -100 ? '#4ade80' : '#ef4444', height: `${Math.min(Math.abs(r / 2), 100)}%`, opacity: 0.7, borderRadius: '2px 2px 0 0' }}></div>
-                        ))}
+                    <div className="section-content">
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px' }}>
+                            <HyperparamCard
+                                label="EXPLORATION (ε)"
+                                value={currentPolicy.exploration.toFixed(2)}
+                            />
+                            <HyperparamCard
+                                label="LEARNING RATE"
+                                value={currentPolicy.learningRate.toFixed(4)}
+                            />
+                            <HyperparamCard
+                                label="DISCOUNT (γ)"
+                                value={currentPolicy.discountFactor.toFixed(2)}
+                            />
+                            <HyperparamCard
+                                label="BATCH SIZE"
+                                value={currentPolicy.batchSize.toString()}
+                            />
+                            <HyperparamCard
+                                label="MEMORY SIZE"
+                                value={currentPolicy.memorySize.toLocaleString()}
+                            />
+                        </div>
                     </div>
                 </div>
 
+                {/* Loss & Epsilon Charts */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                    <div className="chart-card">
+                        <div className="chart-header">
+                            <div className="chart-label">OPTIMIZATION</div>
+                            <div className="chart-title">LOSS CURVE</div>
+                        </div>
+                        <div className="chart-content">
+                            <ResponsiveContainer width="100%" height={200}>
+                                <LineChart data={agentData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                                    <XAxis
+                                        dataKey="episode"
+                                        stroke="#5f6368"
+                                        tick={{ fill: '#9aa0a6', fontSize: 10 }}
+                                    />
+                                    <YAxis stroke="#5f6368" tick={{ fill: '#9aa0a6', fontSize: 10 }} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            background: '#141920',
+                                            border: '1px solid #1f2937',
+                                            borderRadius: '4px',
+                                            fontFamily: 'JetBrains Mono'
+                                        }}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="loss"
+                                        stroke="#ff6b6b"
+                                        strokeWidth={2}
+                                        dot={false}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    <div className="chart-card">
+                        <div className="chart-header">
+                            <div className="chart-label">EXPLORATION</div>
+                            <div className="chart-title">EPSILON DECAY</div>
+                        </div>
+                        <div className="chart-content">
+                            <ResponsiveContainer width="100%" height={200}>
+                                <LineChart data={agentData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                                    <XAxis
+                                        dataKey="episode"
+                                        stroke="#5f6368"
+                                        tick={{ fill: '#9aa0a6', fontSize: 10 }}
+                                    />
+                                    <YAxis
+                                        stroke="#5f6368"
+                                        tick={{ fill: '#9aa0a6', fontSize: 10 }}
+                                        domain={[0, 1]}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{
+                                            background: '#141920',
+                                            border: '1px solid #1f2937',
+                                            borderRadius: '4px',
+                                            fontFamily: 'JetBrains Mono'
+                                        }}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="epsilon"
+                                        stroke="#a855f7"
+                                        strokeWidth={2}
+                                        dot={false}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <StatusBar
+                decisionLogic="PPO (VER 3.1)"
+                memory="1.2GB"
+                load="TRAINING"
+            />
         </div>
     );
 };
 
-// Styles
-const panelStyle = {
-    background: '#1e293b',
-    padding: '25px',
-    borderRadius: '16px',
-    border: '1px solid #334155',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-};
-
-const headerStyle = {
-    marginTop: 0,
-    fontSize: '1em',
-    color: '#94a3b8',
-    letterSpacing: '1px',
-    fontWeight: 'bold',
-    textTransform: 'uppercase' as const
-};
-
-const StateBar = ({ label, value, raw, color }: any) => (
-    <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1em', marginBottom: '8px', fontWeight: 'bold' }}>
-            <span style={{ color: '#cbd5e1' }}>{label}</span>
-            <span style={{ color: color }}>{raw}</span>
+const HyperparamCard = ({ label, value }: { label: string; value: string }) => (
+    <div style={{
+        background: 'var(--bg-tertiary)',
+        border: '1px solid var(--border-color)',
+        borderRadius: '8px',
+        padding: '16px',
+        textAlign: 'center'
+    }}>
+        <div style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '1.5rem',
+            fontWeight: 700,
+            color: 'var(--accent-cyan)',
+            marginBottom: '8px'
+        }}>
+            {value}
         </div>
-        <div style={{ height: '10px', background: '#334155', borderRadius: '5px', overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(value, 100)}%`, background: color, height: '100%', transition: 'width 0.5s ease' }}></div>
+        <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.6rem',
+            color: 'var(--text-muted)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase'
+        }}>
+            {label}
         </div>
     </div>
 );

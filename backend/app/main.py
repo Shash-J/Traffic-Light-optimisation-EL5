@@ -5,7 +5,9 @@ Entry point for Smart Traffic RL backend
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routes import simulation, metrics
+from app.routes.simulation import router as simulation_router
+from app.routes.metrics import router as metrics_router
+from app.routes.advanced import router as advanced_router
 from app.websocket import ws_router
 import uvicorn
 
@@ -14,7 +16,7 @@ import uvicorn
 app = FastAPI(
     title="Smart Traffic RL System",
     description="Real-time traffic signal optimization using Reinforcement Learning and SUMO",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 # Configure CORS - Allow all origins for development
@@ -27,8 +29,9 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(simulation.router)
-app.include_router(metrics.router)
+app.include_router(simulation_router)
+app.include_router(metrics_router)
+app.include_router(advanced_router)  # Weather, Emergency, Evaluation endpoints
 app.include_router(ws_router)
 
 
@@ -37,11 +40,13 @@ async def root():
     """Root endpoint"""
     return {
         "name": "Smart Traffic RL System",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "status": "running",
+        "features": ["weather_awareness", "emergency_priority", "multi_junction_coordination"],
         "endpoints": {
             "simulation": "/api/simulation",
             "metrics": "/api/metrics",
+            "advanced": "/api/advanced",
             "websocket": "/ws"
         }
     }

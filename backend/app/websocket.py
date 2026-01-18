@@ -1,6 +1,6 @@
 """
 WebSocket Manager for real-time data streaming
-Broadcasts simulation metrics to connected clients
+Broadcasts REAL simulation metrics to connected clients
 """
 from fastapi import WebSocket, WebSocketDisconnect, APIRouter
 from typing import List, Dict
@@ -8,6 +8,8 @@ import asyncio
 import json
 from app.sumo.traci_handler import traci_handler
 from app.config import settings
+from app.rl.inference import rl_agent
+from app.routes.advanced import sim_state, get_live_weather, get_live_emergency, record_step_metrics
 
 
 class ConnectionManager:
@@ -42,28 +44,56 @@ class ConnectionManager:
         for connection in disconnected:
             self.disconnect(connection)
     
-    async def start_broadcasting(self):
+    async def start_broadcasting(self, mode: str = "fixed", intensity: str = None):
         """Start broadcasting simulation metrics"""
         self.broadcasting = True
-        print("Started broadcasting simulation metrics")
+        print(f"Started broadcasting simulation metrics in {mode} mode (intensity: {intensity})")
+        
+        # Load RL model if in RL mode
+        if mode == "rl":
+            print("🤖 RL Mode: Loading agent with time-based policy selection...")
+            policy_type = rl_agent.get_policy_for_intensity(intensity)
+            print(f"   Detected policy type: {policy_type}")
+            rl_agent.load_model(policy_type)
+            if rl_agent.loaded:
+                print(f"   ✓ Policy loaded successfully: {rl_agent.current_policy}")
+                print(f"   ✓ Agent status: {rl_agent.get_status()}")
         
         step_count = 0
         while self.broadcasting:
             try:
+                # ⚡ RL CONTROL LOGIC
+                if mode == "rl" and rl_agent.loaded:
+                    # Check if policy needs switching (time-based)
+                    rl_agent.switch_policy_if_needed(intensity)
+                    
+                    # Control all traffic lights
+                    for junction_id in traci_handler.junction_ids:
+                        rl_agent.control_traffic_light(junction_id, intensity)
+
                 # ⚡ STEP THE SIMULATION (this makes vehicles move!)
                 step_success = traci_handler.simulation_step()
                 step_count += 1
                 
-                # Get current metrics from SUMO
+                # Get current metrics from SUMO (REAL DATA)
                 metrics = traci_handler.get_metrics()
+                
+                # Add weather and emergency data (REAL from simulation)
+                metrics["weather"] = get_live_weather()
+                metrics["emergency"] = get_live_emergency()
+                metrics["controller_mode"] = mode
+                
+                # Record metrics for comparison
+                record_step_metrics(mode)
                 
                 # 🔍 DEBUG LOGGING - Print every 5 seconds
                 if step_count % 5 == 0:
+                    emergency_status = "🚨 ACTIVE" if metrics["emergency"]["active"] else "✓ Clear"
+                    weather_name = metrics["weather"]["condition_name"]
                     print(f"📊 Step {step_count}: Time={metrics.get('time', 0):.0f}s, "
                           f"Vehicles={metrics.get('vehicle_count', 0)}, "
                           f"Queue={metrics.get('queue_length', 0)}, "
-                          f"Departed={metrics.get('departed_vehicles', 0)}, "
-                          f"Arrived={metrics.get('arrived_vehicles', 0)}")
+                          f"Mode={mode.upper()}, Weather={weather_name}, Emergency={emergency_status}")
                 
                 # Broadcast to all connected clients
                 if self.active_connections:
