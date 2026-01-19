@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React from 'react';
+import { TrafficMap } from './TrafficMap';
 import { SignalState } from './SignalState';
 import { WeatherIndicator } from './WeatherIndicator';
 import { EmergencyAlert } from './EmergencyAlert';
@@ -29,30 +30,22 @@ interface DigitalTwinProps {
     controllerType?: 'RL' | 'Fixed-Time' | 'Actuated';
 }
 
-const LOCATION_COORDS: Record<string, [number, number]> = {
-    'silk_board': [12.9175, 77.6234],
-    'tin_factory': [12.9976, 77.6601],
-    'hebbal': [13.0334, 77.5891]
-};
-
 const CONTROLLER_BADGES: Record<string, { icon: string; color: string }> = {
     'RL': { icon: '🤖', color: '#22c55e' },
     'Fixed-Time': { icon: '⏱️', color: '#64748b' },
     'Actuated': { icon: '📊', color: '#eab308' }
 };
 
-export const DigitalTwin: React.FC<DigitalTwinProps> = ({ 
-    queueLength, 
-    vehicleCount, 
-    trafficLights, 
+export const DigitalTwin: React.FC<DigitalTwinProps> = ({
+    queueLength,
+    vehicleCount,
+    trafficLights,
     locationId = 'silk_board',
     weatherState,
     emergencyActive = false,
     emergencyVehicle,
     controllerType = 'RL'
 }) => {
-    const [mapLoaded, setMapLoaded] = React.useState(false);
-    
     // Determine congestion color
     const getCongestionColor = () => {
         if (queueLength > 80) return '#ef4444'; // Red
@@ -61,93 +54,22 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
     };
 
     const color = getCongestionColor();
-    const pulseSpeed = Math.max(0.5, 2 - (vehicleCount / 100)); // Faster pulse if more cars
-
-    const center = LOCATION_COORDS[locationId] || LOCATION_COORDS['silk_board'];
-
-    // Calculate BBox for OSM Embed
-    const offset = 0.003; // Radius
-    const bbox = `${center[1] - offset},${center[0] - offset},${center[1] + offset},${center[0] + offset}`;
-    const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${center[0]},${center[1]}`;
-
-    useEffect(() => {
-        // Set timeout to show loading state
-        const timer = setTimeout(() => setMapLoaded(true), 1000);
-        return () => clearTimeout(timer);
-    }, [locationId]);
 
     return (
         <div className="digital-twin-container" style={{
             width: '100%',
             height: '100%',
             position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            background: '#0f172a' // fallback background
         }}>
-            {!mapLoaded && (
-                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#64748b', fontSize: '0.9em' }}>
-                    Loading map...
-                </div>
-            )}
-            <iframe
-                width="100%"
-                height="100%"
-                frameBorder="0"
-                scrolling="no"
-                marginHeight={0}
-                marginWidth={0}
-                src={embedUrl}
-                title="Traffic Location Map"
-                loading="eager"
-                onLoad={() => setMapLoaded(true)}
-                style={{ pointerEvents: 'none', border: 'none', opacity: mapLoaded ? 1 : 0, transition: 'opacity 0.5s' }}
-                sandbox="allow-scripts allow-same-origin"
-            ></iframe>
-
-            {/* 🕸️ SCANNER OVERLAY (The "Digital Twin" Effect) */}
-            <div className="scanner-overlay" style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                background: 'radial-gradient(circle at center, transparent 30%, #0f172a 90%)',
-                zIndex: 1,
-                pointerEvents: 'none'
-            }}></div>
-
-            {/* Radar Scan Effect */}
-            <div className="radar-sweep" style={{
-                position: 'absolute',
-                width: '100%',
-                height: '100%',
-                background: 'conic-gradient(from 0deg, transparent 0deg, rgba(56, 189, 248, 0.1) 60deg, transparent 60deg)',
-                borderRadius: '50%',
-                animation: 'spin 4s linear infinite',
-                zIndex: 2,
-                pointerEvents: 'none'
-            }}></div>
-
-            {/* Central Node (The Junction Status) */}
-            <div style={{
-                width: '140px',
-                height: '140px',
-                borderRadius: '50%',
-                background: `rgba(15, 23, 42, 0.8)`,
-                boxShadow: `0 0 30px ${color}60`,
-                zIndex: 10,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: `2px solid ${color}`,
-                backdropFilter: 'blur(4px)',
-                animation: `pulse ${pulseSpeed}s infinite`
-            }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '2em', fontWeight: 'bold', color: 'white' }}>{vehicleCount}</div>
-                    <div style={{ fontSize: '0.6em', textTransform: 'uppercase', letterSpacing: '2px', color: '#cbd5e1' }}>VEHICLES</div>
-                </div>
+            {/* Integrated Traffic Map (Satellite/Schematic) */}
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+                <TrafficMap
+                    queueLength={queueLength}
+                    vehicleCount={vehicleCount}
+                    currentPhase={trafficLights?.current_phase || 0}
+                    location={locationId}
+                />
             </div>
 
             {/* HUD Overlay for Signal State (Floating Top Left) */}
@@ -161,7 +83,7 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
 
             {/* Weather Indicator (Top Right) */}
             <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 20 }}>
-                <WeatherIndicator 
+                <WeatherIndicator
                     condition={weatherState?.condition || 0}
                     speedFactor={weatherState?.speedFactor || 1.0}
                     minGreenAdjustment={weatherState?.minGreenAdjustment || 0}
@@ -170,7 +92,7 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
 
             {/* Emergency Alert (Bottom Left) */}
             <div style={{ position: 'absolute', bottom: '20px', left: '20px', zIndex: 20 }}>
-                <EmergencyAlert 
+                <EmergencyAlert
                     active={emergencyActive}
                     vehicle={emergencyVehicle}
                     junctionId={locationId}
@@ -193,8 +115,8 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
                 gap: '8px'
             }}>
                 <span style={{ fontSize: '1.2em' }}>{CONTROLLER_BADGES[controllerType].icon}</span>
-                <span style={{ 
-                    color: CONTROLLER_BADGES[controllerType].color, 
+                <span style={{
+                    color: CONTROLLER_BADGES[controllerType].color,
                     fontWeight: 'bold',
                     fontSize: '0.85em'
                 }}>

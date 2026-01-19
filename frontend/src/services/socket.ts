@@ -151,6 +151,17 @@ class WebSocketService {
     isConnected(): boolean {
         return this.ws?.readyState === WebSocket.OPEN;
     }
+
+    /**
+     * Send message to backend
+     */
+    send(data: any): void {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(typeof data === 'string' ? data : JSON.stringify(data));
+        } else {
+            console.warn('Cannot send message: WebSocket not connected');
+        }
+    }
 }
 
 // Export singleton instance

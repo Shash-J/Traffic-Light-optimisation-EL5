@@ -87,8 +87,22 @@ class DualSimulationOrchestrator:
             os.environ['SUMO_HOME'] = settings.SUMO_HOME
             
             # Build config path
-            current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            self.config_file = os.path.join(current_dir, "sumo", "network", "simulation.sumocfg")
+            from app.sumo.network_manager import network_manager
+            
+            # Determine network and routes
+            net_path = network_manager.get_network_path(location)
+            route_path = ""
+            
+            use_custom_net = net_path.endswith(".net.xml")
+            
+            if use_custom_net:
+                # If we have a custom net, we also need routes
+                route_path = network_manager.get_routes_path(location, net_path)
+                print(f"Using custom network: {net_path}")
+                print(f"Using generated routes: {route_path}")
+            else:
+                # Use default fallback config
+                self.config_file = net_path 
             
             binary = settings.SUMO_GUI_BINARY if use_gui else settings.SUMO_BINARY
             sumo_binary = os.path.join(settings.SUMO_HOME, 'bin', binary)
@@ -101,7 +115,6 @@ class DualSimulationOrchestrator:
             
             fixed_cmd = [
                 sumo_binary,
-                "-c", self.config_file,
                 "--remote-port", str(self.PORT_FIXED),
                 "--num-clients", "1",
                 "--step-length", str(settings.STEP_LENGTH),
@@ -109,6 +122,11 @@ class DualSimulationOrchestrator:
                 "--window-pos", "0,50",
                 "--window-size", "800,600"
             ]
+            
+            if use_custom_net:
+                fixed_cmd.extend(["-n", net_path, "-r", route_path])
+            else:
+                fixed_cmd.extend(["-c", self.config_file])
             
             print(f"   Command: {' '.join(fixed_cmd)}")
             self.fixed_sim.process = subprocess.Popen(fixed_cmd)
@@ -146,7 +164,6 @@ class DualSimulationOrchestrator:
             
             rl_cmd = [
                 sumo_binary,
-                "-c", self.config_file,
                 "--remote-port", str(self.PORT_RL),
                 "--num-clients", "1",
                 "--step-length", str(settings.STEP_LENGTH),
@@ -154,6 +171,11 @@ class DualSimulationOrchestrator:
                 "--window-pos", "820,50",
                 "--window-size", "800,600"
             ]
+            
+            if use_custom_net:
+                rl_cmd.extend(["-n", net_path, "-r", route_path])
+            else:
+                rl_cmd.extend(["-c", self.config_file])
             
             print(f"   Command: {' '.join(rl_cmd)}")
             self.rl_sim.process = subprocess.Popen(rl_cmd)
@@ -268,6 +290,7 @@ class DualSimulationOrchestrator:
                 'waiting_time': self._get_avg_waiting_time(),
                 'queue_length': self._get_total_queue(),
                 'throughput': traci.simulation.getArrivedNumber(),
+                'current_phase': self._get_current_phase(sim),
             }
         except:
             return {}
@@ -296,6 +319,17 @@ class DualSimulationOrchestrator:
         except:
             return 0
     
+    
+    def _get_current_phase(self, sim: SimulationInstance) -> int:
+        """Get current phase of the first traffic light"""
+        import traci
+        try:
+            if sim.junction_ids:
+                return traci.trafficlight.getPhase(sim.junction_ids[0])
+            return 0
+        except:
+            return 0
+
     def inject_emergency_vehicle(self, route_id: str = "emergency_route", 
                                   vehicle_type: str = "ambulance") -> bool:
         """Inject the SAME emergency vehicle into BOTH simulations."""

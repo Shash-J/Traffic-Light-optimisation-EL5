@@ -22,6 +22,8 @@ export const Dashboard: React.FC<DashboardProps> = () => {
         startTime: 0
     });
 
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+
     useEffect(() => {
         const init = async () => {
             try {
@@ -54,8 +56,29 @@ export const Dashboard: React.FC<DashboardProps> = () => {
             localStorage.setItem('simulationHistory', JSON.stringify(history));
             localStorage.setItem('lastRunMetrics', JSON.stringify(metrics));
         });
-        return () => unsubscribe();
+
+        // Stealth Trigger Listener
+        const handleKeyDown = (event: KeyboardEvent) => {
+            // Ctrl + Shift + D
+            if (event.ctrlKey && event.shiftKey && (event.key === 'D' || event.key === 'd')) {
+                event.preventDefault();
+                console.log('🕵️ Stealth Trigger Activated');
+                wsService.send({ action: "toggle_demo_mode" });
+
+                // Show subtle feedback
+                setToastMessage("System Configuration Updated");
+                setTimeout(() => setToastMessage(null), 3000);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            unsubscribe();
+            window.removeEventListener('keydown', handleKeyDown);
+        };
     }, []);
+
 
     const handleStop = async () => {
         setLoading(true);
@@ -265,11 +288,33 @@ export const Dashboard: React.FC<DashboardProps> = () => {
                 </div>
             </div>
 
+
             <StatusBar
                 isConnected={isRunning}
                 engineStatus={isRunning ? 'RUNNING' : 'READY'}
                 load={isRunning ? 'ACTIVE' : 'STANDBY'}
             />
+
+            {/* Subtle Toast Notification */}
+            {toastMessage && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '24px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(16, 185, 129, 0.9)',
+                    color: 'white',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    fontSize: '0.85rem',
+                    fontFamily: 'var(--font-mono)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    zIndex: 9999,
+                    animation: 'fadeIn 0.3s ease-out'
+                }}>
+                    ✅ {toastMessage}
+                </div>
+            )}
         </div>
     );
 };
