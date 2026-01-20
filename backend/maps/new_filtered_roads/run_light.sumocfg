@@ -1,0 +1,6 @@
+<configuration>
+    <input>
+        <net-file value="new_hosmat.net.xml"/>
+        <route-files value="light.rou.xml"/>
+    </input>
+</configuration>
